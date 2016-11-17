@@ -15,13 +15,22 @@ namespace Example.Lib
 
     public delegate IBusinessItem CreateChildBusinessItem();
     public delegate IBusinessItem CreateChildBusinessItemGuid(Guid criteria);
-    public delegate IBusinessItem FetchChildBusinessItem(BusinessItemDto criteria);
+    public delegate IBusinessItem FetchChildBusinessItem(BusinessItemDto dto);
+
+    // We allow the Fetch calls (and delegates) to have multiple parameters
+    // But the IHandleXYZ interface can only have one criteria as a parameter
+    // with a tuple to handle multiple parameters
+    // ObjectPortal will bridge the two by turning the multiple paramters to a tuple
+    public delegate IBusinessItem FetchChildBusinessItemGuid(Guid criteria, BusinessItemDto dto);
+
     public delegate void UpdateChildBusinessItem(IBusinessItem bo, Guid criteria);
 
     [Serializable]
     internal class BusinessItem : DPBusinessBase<BusinessItem>, IBusinessItem
         , IHandleCreateChild<Guid>
-        , IHandleFetchChildDI<BusinessItemDto, IBusinessItemDal>, IHandleUpdateChildDI<Guid, IBusinessItemDal>
+        , IHandleFetchChildDI<BusinessItemDto, IBusinessItemDal>
+        , IHandleFetchChildDI<Tuple<Guid, BusinessItemDto>, IBusinessItemDal>
+        , IHandleUpdateChildDI<Guid, IBusinessItemDal>
     {
 
         public static readonly PropertyInfo<string> NameProperty = RegisterProperty<string>(c => c.Name);
@@ -64,7 +73,18 @@ namespace Example.Lib
         {
             MarkAsChild();
             this.FetchChildID = dto.FetchUniqueID;
-            this.Criteria = dto.Criteria;
+        }
+
+
+        // We allow the Fetch calls (and delegates) to have multiple parameters
+        // But the IHandleXYZ interface can only have one criteria as a parameter
+        // with a tuple to handle multiple parameters
+        // ObjectPortal will bridge the two by turning the multiple paramters to a tuple
+        public void FetchChild(Tuple<Guid, BusinessItemDto> dto, IBusinessItemDal dal) // I only need the dependency within this method
+        {
+            MarkAsChild();
+            this.FetchChildID = dto.Item2.FetchUniqueID;
+            this.Criteria = dto.Item1;
 
         }
 

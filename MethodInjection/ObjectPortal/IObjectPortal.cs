@@ -15,9 +15,14 @@ namespace ObjectPortal
         T CreateChild();
         T CreateChild<C>(C criteria);
         T Fetch();
+
         T Fetch<C>(C criteria);
+        T Fetch<C1, C2>(C1 criteria1, C2 criteria2);
+        T Fetch<C1, C2, C3>(C1 criteria, C2 criteria2, C3 criteria3);
         T FetchChild();
         T FetchChild<C>(C criteria);
+        T FetchChild<C1, C2>(C1 criteria1, C2 criteria2);
+        T FetchChild<C1, C2, C3>(C1 criteria, C2 criteria2, C3 criteria3);
         void Update(T bo);
         void Update<C>(T bo, C criteria);
         void UpdateChild(T bo);

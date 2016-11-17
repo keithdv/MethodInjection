@@ -40,6 +40,7 @@ namespace Example.Lib
             builder.RegisterObjectPortalFetch(typeof(FetchRoot));
             builder.RegisterObjectPortalFetch(typeof(FetchRootGuid));
             builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItem));
+            builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItemGuid));
             builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItemList));
             builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItemListGuid));
 

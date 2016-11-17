@@ -64,10 +64,11 @@ namespace ObjectPortal
 
             var parameterCount = invoke.GetParameters().Count();
 
-            if (parameterCount > 1)
-            {
-                throw new Exception($"Delegate ${delegateType.Name} cannot have more than one method parameter.");
-            }
+            // If there is more than one CRITERIA parameter than ObjectPortal will create a Tuple
+            //if (parameterCount > 1)
+            //{
+            //    throw new Exception($"Delegate ${delegateType.Name} cannot have more than one method parameter.");
+            //}
 
             // Need to resolve an IObjectPortal<BusinessObjectType>
             var opType = typeof(IObjectPortal<>).MakeGenericType(boType);
@@ -84,17 +85,23 @@ namespace ObjectPortal
             else
             {
 
-                // parameterCount = 1
 
-                method = opType.GetMethods().Where(x => x.Name == methodName && x.IsGenericMethod).First();
 
-                // We need to match the delegateType signature
-                // So Fetch<C> needs to be Fetch<Criteria>
-                // Again we look to our invoke for this
-                var paramType = invoke.GetParameters().First().ParameterType;
-                method = method.MakeGenericMethod(paramType);
+                List<Type> types = new List<Type>();
+
+                int count = 0;
+
+                foreach (var p in invoke.GetParameters().ToList())
+                {
+                    types.Add(p.ParameterType);
+                    count += 1;
+                }
+
+                method = opType.GetMethods().Where(x => x.Name == methodName && x.GetParameters().Count() == count).First();
+                method = method.MakeGenericMethod(types.ToArray());
 
             }
+
 
             builder.Register((c) =>
             {
@@ -108,12 +115,12 @@ namespace ObjectPortal
 
         public static void RegisterObjectPortalUpdate(this ContainerBuilder builder, Type boType)
         {
-            ObjectPortalUpdate(builder, boType, typeof(ObjectPortalUpdate<>), nameof(ObjectPortal<Csla.IBusinessBase>.Update));
+            ObjectPortalUpdate(builder, boType, typeof(Update<>), nameof(ObjectPortal<Csla.IBusinessBase>.Update));
         }
 
         public static void RegisterObjectPortalUpdateChild(this ContainerBuilder builder, Type boType)
         {
-            ObjectPortalUpdate(builder, boType, typeof(ObjectPortalUpdateChild<>), nameof(ObjectPortal<Csla.IBusinessBase>.UpdateChild));
+            ObjectPortalUpdate(builder, boType, typeof(UpdateChild<>), nameof(ObjectPortal<Csla.IBusinessBase>.UpdateChild));
         }
 
         private static void ObjectPortalUpdate(ContainerBuilder builder, Type boType, Type objectPortalDelegate, string updateMethodName)
@@ -225,13 +232,13 @@ namespace ObjectPortal
             }).As(delegateType);
 
         }
+
     }
 
-
-    public delegate void ObjectPortalUpdate<T>(T Bo) where T : Csla.Core.ITrackStatus;
-    public delegate void ObjectPortalUpdate<T, C>(T Bo, C criteria) where T : Csla.Core.ITrackStatus;
-    public delegate void ObjectPortalUpdateChild<T>(T Bo) where T : Csla.Core.ITrackStatus;
-    public delegate void ObjectPortalUpdateChild<T, C>(T Bo, C criteria) where T : Csla.Core.ITrackStatus;
+    public delegate void Update<T>(T Bo) where T : Csla.Core.ITrackStatus;
+    public delegate void Update<T, C>(T Bo, C criteria) where T : Csla.Core.ITrackStatus;
+    public delegate void UpdateChild<T>(T Bo) where T : Csla.Core.ITrackStatus;
+    public delegate void UpdateChild<T, C>(T Bo, C criteria) where T : Csla.Core.ITrackStatus;
 
     /// <summary>
     /// Abstract BO object creating, fetching and updating each other
@@ -275,9 +282,13 @@ namespace ObjectPortal
 
             if (create == null)
             {
-                if (result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleCreateDI<>).Name).Count() == 1)
+
+                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleCreateDI<>).Name).FirstOrDefault();
+
+
+                if (@interface != null)
                 {
-                    return _CallMethod(result, nameof(IHandleCreateDI<object>.Create), typeof(IHandleCreateDI<>).Name, o => new object[1] { o });
+                    return _CallMethod(result, nameof(IHandleCreateDI<object>.Create), @interface, o => new object[1] { o });
                 }
                 // Allow no create() to be called on the new object
             }
@@ -302,9 +313,12 @@ namespace ObjectPortal
 
             if (create == null)
             {
-                if (result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleCreateDI<,>).Name).Count() == 1)
+                var criteriaType = criteria.GetType();
+                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleCreateDI<,>).Name && x.GenericTypeArguments[0] == criteriaType).FirstOrDefault();
+
+                if (@interface != null)
                 {
-                    return _CallMethod(result, nameof(IHandleCreateDI<object, object>.Create), typeof(IHandleCreateDI<,>).Name, o => new object[] { criteria, o });
+                    return _CallMethod(result, nameof(IHandleCreateDI<object, object>.Create), @interface, o => new object[] { criteria, o });
                 }
                 else
                 {
@@ -332,9 +346,11 @@ namespace ObjectPortal
 
             if (create == null)
             {
-                if (result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleCreateChildDI<>).Name).Count() == 1)
+                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleCreateChildDI<>).Name).FirstOrDefault();
+
+                if (@interface != null)
                 {
-                    return _CallMethod(result, nameof(IHandleCreateChildDI<object>.CreateChild), typeof(IHandleCreateChildDI<>).Name, o => new object[] { o });
+                    return _CallMethod(result, nameof(IHandleCreateChildDI<object>.CreateChild), @interface, o => new object[] { o });
                 }
                 // Allow create with no criteria to not have an IHandle
             }
@@ -357,9 +373,12 @@ namespace ObjectPortal
 
             if (create == null)
             {
-                if (result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleCreateChildDI<,>).Name).Count() == 1)
+                var criteriaType = criteria.GetType();
+                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleCreateChildDI<,>).Name && x.GenericTypeArguments[0] == criteriaType).FirstOrDefault();
+
+                if (@interface != null)
                 {
-                    return _CallMethod(result, nameof(IHandleCreateChildDI<object, object>.CreateChild), typeof(IHandleCreateChildDI<,>).Name, o => new object[] { criteria, o });
+                    return _CallMethod(result, nameof(IHandleCreateChildDI<object, object>.CreateChild), @interface, o => new object[] { criteria, o });
                 }
                 else
                 {
@@ -385,9 +404,11 @@ namespace ObjectPortal
 
             if (fetch == null)
             {
-                if (result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchDI<>).Name).Count() == 1)
+                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchDI<>).Name).FirstOrDefault();
+
+                if (@interface != null)
                 {
-                    return _CallMethod(result, nameof(IHandleFetchDI<object>.Fetch), typeof(IHandleFetchDI<>).Name, o => new object[1] { o });
+                    return _CallMethod(result, nameof(IHandleFetchDI<object>.Fetch), @interface, o => new object[1] { o });
                 }
                 else
                 {
@@ -415,9 +436,12 @@ namespace ObjectPortal
 
             if (fetch == null)
             {
-                if (result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchDI<,>).Name).Count() == 1)
+                var criteriaType = criteria.GetType();
+                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchDI<,>).Name && x.GenericTypeArguments[0] == criteriaType).FirstOrDefault();
+
+                if (@interface != null)
                 {
-                    return _CallMethod(result, nameof(IHandleFetchDI<object, object>.Fetch), typeof(IHandleFetchDI<,>).Name, o => new object[] { criteria, o });
+                    return _CallMethod(result, nameof(IHandleFetchDI<object, object>.Fetch), @interface, o => new object[] { criteria, o });
                 }
                 else
                 {
@@ -434,6 +458,24 @@ namespace ObjectPortal
 
         }
 
+        public T Fetch<C1, C2>(C1 criteria1, C2 criteria2)
+        {
+
+            var tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.Name == nameof(Tuple.Create) && x.GetParameters().Count() == 2).First();
+
+            var tuple = tupleCreateMethod
+                .MakeGenericMethod(new Type[2] { typeof(C1), typeof(C2) })
+                .Invoke(null, new object[2] { criteria1, criteria2 });
+
+            return (T)this.Fetch(tuple);
+
+        }
+
+        public T Fetch<C1, C2, C3>(C1 criteria1, C2 criteria2, C3 criteria3)
+        {
+            throw new NotImplementedException();
+        }
+
         public T FetchChild()
         {
             var result = createT();
@@ -445,9 +487,11 @@ namespace ObjectPortal
 
             if (fetch == null)
             {
-                if (result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchChildDI<>).Name).Count() == 1)
+                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchChildDI<>).Name).FirstOrDefault();
+
+                if (@interface != null)
                 {
-                    return _CallMethod(result, nameof(IHandleFetchChildDI<object>.FetchChild), typeof(IHandleFetchChildDI<>).Name, o => new object[] { o });
+                    return _CallMethod(result, nameof(IHandleFetchChildDI<object>.FetchChild), @interface, o => new object[] { o });
                 }
                 else
                 {
@@ -474,9 +518,12 @@ namespace ObjectPortal
 
             if (fetch == null)
             {
-                if (result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchChildDI<,>).Name).Count() == 1)
+                var criteriaType = criteria.GetType();
+                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchChildDI<,>).Name && x.GenericTypeArguments[0] == criteriaType).First();
+
+                if (@interface != null)
                 {
-                    return _CallMethod(result, nameof(IHandleFetchChildDI<object, object>.FetchChild), typeof(IHandleFetchChildDI<,>).Name, o => new object[] { criteria, o });
+                    return _CallMethod(result, nameof(IHandleFetchChildDI<object, object>.FetchChild), @interface, o => new object[] { criteria, o });
                 }
                 else
                 {
@@ -492,7 +539,35 @@ namespace ObjectPortal
 
         }
 
-        private T _CallMethod(T result, string methodName, string handleInterfaceName, Func<object, object[]> returnInvokeParams)
+        public T FetchChild<C1, C2>(C1 criteria1, C2 criteria2)
+        {
+            // We allow the Fetch calls (and delegates) to have multiple parameters
+            // But the IHandleXYZ interface can only have one criteria as a parameter
+            // with a tuple to handle multiple parameters
+            // Convert the multiple parameters to a tuple
+
+            // Convert to a Tuple as that is what IHandle will expect, only one Criteria parameter allowed
+            var tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.Name == nameof(Tuple.Create) && x.GetParameters().Count() == 2).First();
+
+            var tuple = tupleCreateMethod
+                .MakeGenericMethod(new Type[2] { typeof(C1), typeof(C2) })
+                .Invoke(null, new object[2] { criteria1, criteria2 });
+
+            // Right now "tuple" is an object 
+            // Convert to correct tuple type
+
+            // var tupleType = typeof(Tuple<,>).MakeGenericType(new Type[2] { typeof(C1), typeof(C2) });
+
+            return (T)this.FetchChild(tuple);
+
+        }
+
+        public T FetchChild<C1, C2, C3>(C1 criteria1, C2 criteria2, C3 criteria3)
+        {
+            throw new NotImplementedException();
+        }
+
+        private T _CallMethod(T result, string methodName, Type interfaceType, Func<object, object[]> returnInvokeParams)
         {
             // Thought - For root operations should this create a new scope?? Then when will it be disposed???
             // Example: For 2-Tier applications how will an Update use a single .InstancePerLifetimeScope sql connection and transaction??
@@ -500,53 +575,47 @@ namespace ObjectPortal
             // This is also where we would enforce create authorization rules
 
 
-
-            var interfaces = result.GetType().GetInterfaces();
-            Type interfaceType = null;
-            Type dependencyType = null;
-
-            foreach (var i in interfaces)
-            {
-                if (i.Name == handleInterfaceName)
-                {
-                    interfaceType = i;
-                    dependencyType = i.GenericTypeArguments[i.GenericTypeArguments.Count() - 1]; // grab the last parameter
-                    break;
-                }
-            }
+            Type dependencyType = interfaceType.GenericTypeArguments[interfaceType.GenericTypeArguments.Count() - 1]; // grab the last parameter
 
             if (interfaceType != null && dependencyType != null)
             {
-                if (!scope.IsRegistered(dependencyType) && dependencyType.IsGenericType) // Bad way of seeing if it is a Tuple.
+                if (!scope.IsRegistered(dependencyType))
                 {
-                    List<object> dependencies = new List<object>();
 
-                    foreach (var depType in dependencyType.GenericTypeArguments)
+                    if (typeof(Delegate).IsAssignableFrom(dependencyType))
                     {
-                        dependencies.Add(scope.Resolve(depType));
+                        throw new NotImplementedException();
                     }
+                    else if (dependencyType.IsGenericType)
+                    { // Bad way of seeing if it is a Tuple.
+                        List<object> dependencies = new List<object>();
 
-                    object tuple = null;
-                    MethodInfo tupleCreateMethod = null;
+                        foreach (var depType in dependencyType.GenericTypeArguments)
+                        {
+                            dependencies.Add(scope.Resolve(depType));
+                        }
 
-                    switch (dependencyType.GenericTypeArguments.Count())
-                    {
-                        case 2:
-                            tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.IsGenericMethod && x.GetGenericArguments().Count() == 2).First();
-                            tuple = tupleCreateMethod
-                                .MakeGenericMethod(new Type[2] { dependencyType.GenericTypeArguments[0], dependencyType.GenericTypeArguments[1] })
-                                .Invoke(null, new object[2] { dependencies[0], dependencies[1] });
-                            break;
-                        case 3:
-                            break;
-                        default:
-                            break;
+                        object tuple = null;
+                        MethodInfo tupleCreateMethod = null;
+
+                        switch (dependencyType.GenericTypeArguments.Count())
+                        {
+                            case 2:
+                                tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.IsGenericMethod && x.GetGenericArguments().Count() == 2).First();
+                                tuple = tupleCreateMethod
+                                    .MakeGenericMethod(new Type[2] { dependencyType.GenericTypeArguments[0], dependencyType.GenericTypeArguments[1] })
+                                    .Invoke(null, new object[2] { dependencies[0], dependencies[1] });
+                                break;
+                            case 3:
+                                break;
+                            default:
+                                break;
+                        }
+
+                        var method = interfaceType.GetMethod(methodName);
+
+                        method.Invoke(result, returnInvokeParams(tuple));
                     }
-
-                    var method = interfaceType.GetMethod(methodName);
-
-                    method.Invoke(result, returnInvokeParams(tuple));
-
                 }
                 else if (scope.IsRegistered(dependencyType))
                 {
@@ -594,13 +663,15 @@ namespace ObjectPortal
 
             if (ts.IsDirty)
             {
+                var @interface = bo.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleUpdateDI<>).Name).First();
+
                 if (ts.IsNew)
                 {
-                    _CallMethod(bo, nameof(IHandleUpdateDI<object>.Insert), typeof(IHandleUpdateDI<>).Name, o => new object[] { o });
+                    _CallMethod(bo, nameof(IHandleUpdateDI<object>.Insert), @interface, o => new object[] { o });
                 }
                 else
                 {
-                    _CallMethod(bo, nameof(IHandleUpdateDI<object>.Update), typeof(IHandleUpdateDI<>).Name, o => new object[] { o });
+                    _CallMethod(bo, nameof(IHandleUpdateDI<object>.Update), @interface, o => new object[] { o });
                 }
             }
 
@@ -630,13 +701,15 @@ namespace ObjectPortal
 
             if (ts.IsDirty)
             {
+                var @interface = bo.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleUpdateDI<>).Name && x.GenericTypeArguments[0] == criteria.GetType()).First();
+
                 if (ts.IsNew)
                 {
-                    _CallMethod(bo, nameof(IHandleUpdateDI<object, object>.Insert), typeof(IHandleUpdateDI<,>).Name, o => new object[] { criteria, o });
+                    _CallMethod(bo, nameof(IHandleUpdateDI<object, object>.Insert), @interface, o => new object[] { criteria, o });
                 }
                 else
                 {
-                    _CallMethod(bo, nameof(IHandleUpdateDI<object, object>.Update), typeof(IHandleUpdateDI<,>).Name, o => new object[] { criteria, o });
+                    _CallMethod(bo, nameof(IHandleUpdateDI<object, object>.Update), @interface, o => new object[] { criteria, o });
                 }
             }
 
@@ -665,13 +738,15 @@ namespace ObjectPortal
 
             if (ts.IsDirty)
             {
+                var @interface = bo.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleUpdateChildDI<>).Name).First();
+
                 if (ts.IsNew)
                 {
-                    _CallMethod(bo, nameof(IHandleUpdateChildDI<object>.InsertChild), typeof(IHandleUpdateChildDI<>).Name, o => new object[] { o });
+                    _CallMethod(bo, nameof(IHandleUpdateChildDI<object>.InsertChild), @interface, o => new object[] { o });
                 }
                 else
                 {
-                    _CallMethod(bo, nameof(IHandleUpdateChildDI<object>.UpdateChild), typeof(IHandleUpdateChildDI<>).Name, o => new object[] { o });
+                    _CallMethod(bo, nameof(IHandleUpdateChildDI<object>.UpdateChild), @interface, o => new object[] { o });
                 }
             }
 
@@ -700,13 +775,15 @@ namespace ObjectPortal
 
             if (ts.IsDirty)
             {
+                var @interface = bo.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleUpdateChildDI<,>).Name && x.GenericTypeArguments[0] == criteria.GetType()).First();
+
                 if (ts.IsNew)
                 {
-                    _CallMethod(bo, nameof(IHandleUpdateChildDI<object, object>.InsertChild), typeof(IHandleUpdateChildDI<,>).Name, o => new object[] { criteria, o });
+                    _CallMethod(bo, nameof(IHandleUpdateChildDI<object, object>.InsertChild), @interface, o => new object[] { criteria, o });
                 }
                 else
                 {
-                    _CallMethod(bo, nameof(IHandleUpdateChildDI<object, object>.UpdateChild), typeof(IHandleUpdateChildDI<,>).Name, o => new object[] { criteria, o });
+                    _CallMethod(bo, nameof(IHandleUpdateChildDI<object, object>.UpdateChild), @interface, o => new object[] { criteria, o });
                 }
             }
 

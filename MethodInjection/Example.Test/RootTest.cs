@@ -113,7 +113,7 @@ namespace Example.Test
             var portal = scope.Resolve<FetchRoot>();
             var result = portal();
 
-            var update = scope.Resolve<ObjectPortalUpdate<IRoot>>();
+            var update = scope.Resolve<Update<IRoot>>();
 
             update(result);
 

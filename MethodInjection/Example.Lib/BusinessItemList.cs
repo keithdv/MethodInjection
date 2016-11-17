@@ -19,7 +19,7 @@ namespace Example.Lib
     internal class BusinessItemList : DtoBusinessListBase<BusinessItemList, IBusinessItem>, IBusinessItemList
         , IHandleCreateChildDI<Guid, CreateChildBusinessItemGuid>
         , IHandleUpdateChildDI<UpdateChildBusinessItem>
-        , IHandleFetchChildDI<Tuple<FetchChildBusinessItem, IBusinessItemDal>>, IHandleFetchChildDI<Guid, Tuple<FetchChildBusinessItem, IBusinessItemDal>>
+        , IHandleFetchChildDI<Tuple<FetchChildBusinessItem, IBusinessItemDal>>, IHandleFetchChildDI<Guid, Tuple<FetchChildBusinessItemGuid, IBusinessItemDal>>
     {
 
         public void AddChild()
@@ -86,14 +86,19 @@ namespace Example.Lib
 
         }
 
-        public void FetchChild(Guid criteria, Tuple<FetchChildBusinessItem, IBusinessItemDal> fetchbi)
+        public void FetchChild(Guid criteria, Tuple<FetchChildBusinessItemGuid, IBusinessItemDal> fetchbi)
         {
 
             var dtos = fetchbi.Item2.Fetch(criteria);
 
             foreach (var d in dtos)
             {
-                Add(fetchbi.Item1(d));
+                // We allow the Fetch calls (and delegates) to have multiple parameters
+                // But the IHandleXYZ interface can only have one criteria as a parameter
+                // with a tuple to handle multiple parameters
+                // ObjectPortal will bridge the two by turning the multiple paramters to a tuple
+
+                Add(fetchbi.Item1(criteria, d));
             }
 
         }
