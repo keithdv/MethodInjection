@@ -39,18 +39,30 @@ namespace Example.Lib
             // Update - Best I came up with
             builder.RegisterObjectPortalFetch(typeof(FetchRoot));
             builder.RegisterObjectPortalFetch(typeof(FetchRootGuid));
-            builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItem));
-            builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItemGuid));
-            builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItemList));
-            builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItemListGuid));
 
-            /// I don't think registering these are neccessary
-            /// Can't ObjectPortal realize that the dependency you are asking for is a Delegate
-            /// and construct the delegate on the fly??
-            builder.RegisterObjectPortalCreateChild(typeof(CreateChildBusinessItemList));
-            builder.RegisterObjectPortalCreateChild(typeof(CreateChildBusinessItem));
-            builder.RegisterObjectPortalCreateChild(typeof(CreateChildBusinessItemListGuid));
-            builder.RegisterObjectPortalCreateChild(typeof(CreateChildBusinessItemGuid));
+            // Update Nov 21st
+            // You no longer need to register all of the factory delegates
+            // ObjectPortal will automatically recognize and create them for you on the fly
+            // However I like the approach of registering them
+            // Because I think it will be better peformance
+            
+            // With both cases there's a catch
+            // if you forget to register them you won't get an error
+            // Autofac will automatically create a delegate for you
+            // but it will not call the ObjectPortal method for you
+
+            //builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItem));
+            //builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItemGuid));
+            ////builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItemList));
+            //builder.RegisterObjectPortalFetchChild(typeof(FetchChildBusinessItemListGuid));
+
+            ///// I don't think registering these are neccessary
+            ///// Can't ObjectPortal realize that the dependency you are asking for is a Delegate
+            ///// and construct the delegate on the fly??
+            //builder.RegisterObjectPortalCreateChild(typeof(CreateChildBusinessItemList));
+            //builder.RegisterObjectPortalCreateChild(typeof(CreateChildBusinessItem));
+            //builder.RegisterObjectPortalCreateChild(typeof(CreateChildBusinessItemListGuid));
+            //builder.RegisterObjectPortalCreateChild(typeof(CreateChildBusinessItemGuid));
 
             builder.RegisterObjectPortalUpdate(typeof(IRoot));
             builder.RegisterObjectPortalUpdateChild(typeof(IBusinessItemList));

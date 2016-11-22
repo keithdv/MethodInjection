@@ -19,22 +19,92 @@ namespace ObjectPortal
 
         public static void RegisterObjectPortalCreate(this ContainerBuilder builder, Type delegateType)
         {
-            RegisterObjectPortalMethodCall(nameof(ObjectPortal<Csla.IBusinessBase>.Create), builder, delegateType);
+            RegisterDelegate(builder, nameof(ObjectPortal<Csla.IBusinessBase>.Create), delegateType);
         }
         public static void RegisterObjectPortalCreateChild(this ContainerBuilder builder, Type delegateType)
         {
-            RegisterObjectPortalMethodCall(nameof(ObjectPortal<Csla.IBusinessBase>.CreateChild), builder, delegateType);
+            RegisterDelegate(builder, nameof(ObjectPortal<Csla.IBusinessBase>.CreateChild), delegateType);
         }
         public static void RegisterObjectPortalFetch(this ContainerBuilder builder, Type delegateType)
         {
-            RegisterObjectPortalMethodCall(nameof(ObjectPortal<Csla.IBusinessBase>.Fetch), builder, delegateType);
+            RegisterDelegate(builder, nameof(ObjectPortal<Csla.IBusinessBase>.Fetch), delegateType);
         }
         public static void RegisterObjectPortalFetchChild(this ContainerBuilder builder, Type delegateType)
         {
-            RegisterObjectPortalMethodCall(nameof(ObjectPortal<Csla.IBusinessBase>.FetchChild), builder, delegateType);
+            RegisterDelegate(builder, nameof(ObjectPortal<Csla.IBusinessBase>.FetchChild), delegateType);
         }
 
-        private static void RegisterObjectPortalMethodCall(string methodName, ContainerBuilder builder, Type delegateType)
+        internal static Type BOType(Type delegateType)
+        {
+            if (delegateType == null)
+            {
+                throw new ArgumentNullException(nameof(delegateType));
+            }
+
+            if (!typeof(Delegate).IsAssignableFrom(delegateType))
+            {
+                throw new Exception("Only Delegates types allowed.");
+            }
+
+            // We assume delegateType is a Delegate. 
+            // The business object type we need is the return type of Delegate.Invoke.
+            var invoke = delegateType.GetMethod(nameof(Nothing.Invoke)); // Better way to get "Invoke"???
+
+            return invoke.ReturnType;
+
+        }
+
+        internal static Type OPType(Type boType)
+        {
+            return typeof(IObjectPortal<>).MakeGenericType(boType);
+        }
+
+        internal static Delegate CreateDelegate(Type delegateType, ILifetimeScope scope)
+        {
+
+
+            if (delegateType.Name.StartsWith("FetchChild"))
+            {
+                return ObjectPortalMethodDelegate("FetchChild", delegateType, scope.Resolve(OPType(BOType(delegateType))));
+            }
+
+            if (delegateType.Name.StartsWith("Fetch"))
+            {
+                return ObjectPortalMethodDelegate("Fetch", delegateType, scope.Resolve(OPType(BOType(delegateType))));
+            }
+
+            if (delegateType.Name.StartsWith("CreateChild"))
+            {
+                return ObjectPortalMethodDelegate("CreateChild", delegateType, scope.Resolve(OPType(BOType(delegateType))));
+            }
+
+            if (delegateType.Name.StartsWith("FetchChild"))
+            {
+                return ObjectPortalMethodDelegate("FetchChild", delegateType, scope.Resolve(OPType(BOType(delegateType))));
+            }
+
+
+            // This is being lazy
+            // So the update will continute to work
+            return (Delegate) scope.Resolve(delegateType);
+
+            throw new NotImplementedException(delegateType.Name);
+
+
+        }
+
+        internal static void RegisterDelegate(ContainerBuilder builder, string methodName, Type delegateType)
+        {
+            builder.Register((c) =>
+            {
+                var portal = c.Resolve(OPType(BOType(delegateType)));
+
+                return Convert.ChangeType(ObjectPortalMethodDelegate(methodName, delegateType, portal), delegateType);
+
+            }).As(delegateType);
+        }
+
+        internal static Delegate ObjectPortalMethodDelegate(string methodName, Type delegateType, object portal)
         {
 
             // Some serious WTF code!
@@ -49,13 +119,11 @@ namespace ObjectPortal
                 throw new Exception("Only Delegates types allowed.");
             }
 
-
             // We assume delegateType is a Delegate. 
             // The business object type we need is the return type of Delegate.Invoke.
             var invoke = delegateType.GetMethod(nameof(Nothing.Invoke)); // Better way to get "Invoke"???
 
-            var boType = invoke.ReturnType;
-
+            var boType = BOType(delegateType);
 
             if (invoke == null)
             {
@@ -71,7 +139,7 @@ namespace ObjectPortal
             //}
 
             // Need to resolve an IObjectPortal<BusinessObjectType>
-            var opType = typeof(IObjectPortal<>).MakeGenericType(boType);
+            var opType = OPType(boType);
 
             MethodInfo method = null;
 
@@ -103,13 +171,7 @@ namespace ObjectPortal
             }
 
 
-            builder.Register((c) =>
-            {
-                var portal = c.Resolve(opType);
-
-                return Convert.ChangeType(Delegate.CreateDelegate(delegateType, portal, method), delegateType);
-
-            }).As(delegateType);
+            return Delegate.CreateDelegate(delegateType, portal, method);
 
         }
 
@@ -567,61 +629,67 @@ namespace ObjectPortal
             throw new NotImplementedException();
         }
 
+
+
         private T _CallMethod(T result, string methodName, Type interfaceType, Func<object, object[]> returnInvokeParams)
         {
             // Thought - For root operations should this create a new scope?? Then when will it be disposed???
             // Example: For 2-Tier applications how will an Update use a single .InstancePerLifetimeScope sql connection and transaction??
 
             // This is also where we would enforce create authorization rules
+            var method = interfaceType.GetMethod(methodName);
 
 
             Type dependencyType = interfaceType.GenericTypeArguments[interfaceType.GenericTypeArguments.Count() - 1]; // grab the last parameter
 
             if (interfaceType != null && dependencyType != null)
             {
-                if (!scope.IsRegistered(dependencyType))
+                if (typeof(Delegate).IsAssignableFrom(dependencyType))
                 {
+                    var del = Convert.ChangeType(ObjectPortal.CreateDelegate(dependencyType, scope), dependencyType);
+                    method.Invoke(result, returnInvokeParams(del));
+                }
+                else if (!scope.IsRegistered(dependencyType) && dependencyType.IsGenericType)
+                { // Bad way of seeing if it is a Tuple.
+                    List<object> dependencies = new List<object>();
 
-                    if (typeof(Delegate).IsAssignableFrom(dependencyType))
+                    foreach (var depType in dependencyType.GenericTypeArguments)
                     {
-                        throw new NotImplementedException();
-                    }
-                    else if (dependencyType.IsGenericType)
-                    { // Bad way of seeing if it is a Tuple.
-                        List<object> dependencies = new List<object>();
-
-                        foreach (var depType in dependencyType.GenericTypeArguments)
+                        if (typeof(Delegate).IsAssignableFrom(depType))
+                        {
+                            dependencies.Add(ObjectPortal.CreateDelegate(depType, scope));
+                        }
+                        else
                         {
                             dependencies.Add(scope.Resolve(depType));
                         }
-
-                        object tuple = null;
-                        MethodInfo tupleCreateMethod = null;
-
-                        switch (dependencyType.GenericTypeArguments.Count())
-                        {
-                            case 2:
-                                tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.IsGenericMethod && x.GetGenericArguments().Count() == 2).First();
-                                tuple = tupleCreateMethod
-                                    .MakeGenericMethod(new Type[2] { dependencyType.GenericTypeArguments[0], dependencyType.GenericTypeArguments[1] })
-                                    .Invoke(null, new object[2] { dependencies[0], dependencies[1] });
-                                break;
-                            case 3:
-                                break;
-                            default:
-                                break;
-                        }
-
-                        var method = interfaceType.GetMethod(methodName);
-
-                        method.Invoke(result, returnInvokeParams(tuple));
                     }
+
+                    object tuple = null;
+                    MethodInfo tupleCreateMethod = null;
+
+                    switch (dependencyType.GenericTypeArguments.Count())
+                    {
+                        case 2:
+                            tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.IsGenericMethod && x.GetGenericArguments().Count() == 2).First();
+                            tuple = tupleCreateMethod
+                                .MakeGenericMethod(new Type[2] { dependencyType.GenericTypeArguments[0], dependencyType.GenericTypeArguments[1] })
+                                .Invoke(null, new object[2] { dependencies[0], dependencies[1] });
+                            break;
+                        case 3:
+                            break;
+                        default:
+                            break;
+                    }
+
+
+                    method.Invoke(result, returnInvokeParams(tuple));
                 }
+
                 else if (scope.IsRegistered(dependencyType))
                 {
                     var dep = scope.Resolve(dependencyType);
 
-                    var method = interfaceType.GetMethod(methodName);
 
                     method.Invoke(result, returnInvokeParams(dep));
                 }

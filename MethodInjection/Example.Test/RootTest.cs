@@ -78,6 +78,7 @@ namespace Example.Test
             var result = fetchRoot();
 
             Assert.IsNotNull(result.BusinessItemList);
+            Assert.AreEqual(2, result.BusinessItemList.Count);
         }
 
         [TestMethod]

@@ -104,13 +104,24 @@ namespace ObjectPortal
 
             var dependencyType = @params[@params.Count() - 1].ParameterType; // Assume dependency to be the last parameter
 
-            if (!scope.IsRegistered(dependencyType) && dependencyType.IsGenericType) // Bad way of seeing if it is a Tuple.
+            if (typeof(Delegate).IsAssignableFrom(dependencyType))
             {
+                return method.Invoke(bo, returnInvokeParams(ObjectPortal.CreateDelegate(dependencyType, scope)));
+            }
+            else if (!scope.IsRegistered(dependencyType) && dependencyType.IsGenericType)
+            { // Bad way of seeing if it is a Tuple.
                 List<object> dependencies = new List<object>();
 
                 foreach (var depType in dependencyType.GenericTypeArguments)
                 {
-                    dependencies.Add(scope.Resolve(depType));
+                    if (typeof(Delegate).IsAssignableFrom(depType))
+                    {
+                        dependencies.Add(ObjectPortal.CreateDelegate(depType, scope));
+                    }
+                    else
+                    {
+                        dependencies.Add(scope.Resolve(depType));
+                    }
                 }
 
                 object tuple = null;
