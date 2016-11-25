@@ -41,7 +41,7 @@ namespace ObjectPortal
                 switch (dependencyType.GenericTypeArguments.Count())
                 {
                     case 2:
-                        tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.IsGenericMethod && x.GetGenericArguments().Count() == 2).First();
+                        tupleCreateMethod = typeof(ValueTuple).GetMethods().Where(x => x.IsGenericMethod && x.GetGenericArguments().Count() == 2).First();
                         tuple = tupleCreateMethod
                             .MakeGenericMethod(new Type[2] { dependencyType.GenericTypeArguments[0], dependencyType.GenericTypeArguments[1] })
                             .Invoke(null, new object[2] { dependencies[0], dependencies[1] });

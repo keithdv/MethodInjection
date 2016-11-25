@@ -29,7 +29,7 @@ namespace Example.Lib
     internal class BusinessItem : DPBusinessBase<BusinessItem>, IBusinessItem
         , IHandleCreateChild<Guid>
         , IHandleFetchChildDI<BusinessItemDto, IBusinessItemDal>
-        , IHandleFetchChildDI<Tuple<Guid, BusinessItemDto>, IBusinessItemDal>
+        , IHandleFetchChildDI<(Guid g, BusinessItemDto dto), IBusinessItemDal>
         , IHandleUpdateChildDI<Guid, IBusinessItemDal>
     {
 
@@ -80,11 +80,11 @@ namespace Example.Lib
         // But the IHandleXYZ interface can only have one criteria as a parameter
         // with a tuple to handle multiple parameters
         // ObjectPortal will bridge the two by turning the multiple paramters to a tuple
-        public void FetchChild(Tuple<Guid, BusinessItemDto> dto, IBusinessItemDal dal) // I only need the dependency within this method
+        public void FetchChild((Guid g, BusinessItemDto dto) criteria, IBusinessItemDal dal) // I only need the dependency within this method
         {
             MarkAsChild();
-            this.FetchChildID = dto.Item2.FetchUniqueID;
-            this.Criteria = dto.Item1;
+            this.FetchChildID = criteria.dto.FetchUniqueID;
+            this.Criteria = criteria.g;
 
         }
 
@@ -143,7 +143,7 @@ namespace Example.Lib
 
         }
 
-        internal class DependencyBusinessRuleTuple : BusinessRuleDIBase<Tuple<IObjectPortal<IBusinessItem>, IBusinessItemDal>>
+        internal class DependencyBusinessRuleTuple : BusinessRuleDIBase<(IObjectPortal<IBusinessItem>, IBusinessItemDal)>
         {
 
             public DependencyBusinessRuleTuple(IPropertyInfo nameProperty) : base(nameProperty)
@@ -151,7 +151,7 @@ namespace Example.Lib
                 InputProperties.Add(nameProperty);
             }
 
-            public override void Execute(RuleContext context, Tuple<IObjectPortal<IBusinessItem>, IBusinessItemDal> dependencies)
+            public override void Execute(RuleContext context, (IObjectPortal<IBusinessItem>, IBusinessItemDal) dependencies)
             {
 
                 if (dependencies.Item1 == null || dependencies.Item2 == null)

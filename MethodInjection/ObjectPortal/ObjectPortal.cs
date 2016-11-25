@@ -581,7 +581,7 @@ namespace ObjectPortal
             if (fetch == null)
             {
                 var criteriaType = criteria.GetType();
-                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchChildDI<,>).Name && x.GenericTypeArguments[0] == criteriaType).First();
+                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchChildDI<,>).Name && x.GenericTypeArguments[0] == criteriaType).FirstOrDefault();
 
                 if (@interface != null)
                 {
@@ -609,7 +609,7 @@ namespace ObjectPortal
             // Convert the multiple parameters to a tuple
 
             // Convert to a Tuple as that is what IHandle will expect, only one Criteria parameter allowed
-            var tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.Name == nameof(Tuple.Create) && x.GetParameters().Count() == 2).First();
+            var tupleCreateMethod = typeof(ValueTuple).GetMethods().Where(x => x.Name == nameof(Tuple.Create) && x.GetParameters().Count() == 2).First();
 
             var tuple = tupleCreateMethod
                 .MakeGenericMethod(new Type[2] { typeof(C1), typeof(C2) })
@@ -618,7 +618,7 @@ namespace ObjectPortal
             // Right now "tuple" is an object 
             // Convert to correct tuple type
 
-            // var tupleType = typeof(Tuple<,>).MakeGenericType(new Type[2] { typeof(C1), typeof(C2) });
+            // var tupleType = typeof((,>).MakeGenericType(new Type[2] { typeof(C1), typeof(C2) });
 
             return (T)this.FetchChild(tuple);
 
@@ -671,7 +671,7 @@ namespace ObjectPortal
                     switch (dependencyType.GenericTypeArguments.Count())
                     {
                         case 2:
-                            tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.IsGenericMethod && x.GetGenericArguments().Count() == 2).First();
+                            tupleCreateMethod = typeof(ValueTuple).GetMethods().Where(x => x.IsGenericMethod && x.GetGenericArguments().Count() == 2).First();
                             tuple = tupleCreateMethod
                                 .MakeGenericMethod(new Type[2] { dependencyType.GenericTypeArguments[0], dependencyType.GenericTypeArguments[1] })
                                 .Invoke(null, new object[2] { dependencies[0], dependencies[1] });
