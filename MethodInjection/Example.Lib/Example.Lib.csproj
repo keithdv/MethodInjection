@@ -56,6 +56,7 @@
   <ItemGroup>
     <Compile Include="BusinessItem.cs" />
     <Compile Include="BusinessItemList.cs" />
+    <Compile Include="Criteria.cs" />
     <Compile Include="IBusinessItem.cs" />
     <Compile Include="IBusinessItemList.cs" />
     <Compile Include="IRoot.cs" />

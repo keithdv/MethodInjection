@@ -13,13 +13,13 @@ namespace Example.Lib
     public delegate IBusinessItemList CreateChildBusinessItemList();
     public delegate IBusinessItemList CreateChildBusinessItemListGuid(Guid criteria);
     public delegate IBusinessItemList FetchChildBusinessItemList();
-    public delegate IBusinessItemList FetchChildBusinessItemListGuid(Guid criteria);
+    public delegate IBusinessItemList FetchChildBusinessItemListCriteria(Criteria criteria);
 
     [Serializable]
     internal class BusinessItemList : DtoBusinessListBase<BusinessItemList, IBusinessItem>, IBusinessItemList
         , IHandleCreateChildDI<Guid, CreateChildBusinessItemGuid>
         , IHandleUpdateChildDI<UpdateChildBusinessItem>
-        , IHandleFetchChildDI<(FetchChildBusinessItem fetch, IBusinessItemDal dal)>, IHandleFetchChildDI<Guid, (FetchChildBusinessItemGuid fetch, IBusinessItemDal dal)>
+        , IHandleFetchChildDI<(FetchChildBusinessItem fetch, IBusinessItemDal dal)>, IHandleFetchChildDI<CriteriaBase, (FetchChildBusinessItemGuid fetch, IBusinessItemDal dal)>
     {
 
         public void AddChild()
@@ -86,10 +86,10 @@ namespace Example.Lib
 
         }
 
-        public void FetchChild(Guid criteria, (FetchChildBusinessItemGuid fetch, IBusinessItemDal dal) dep)
+        public void FetchChild(CriteriaBase criteria, (FetchChildBusinessItemGuid fetch, IBusinessItemDal dal) dep)
         {
 
-            var dtos = dep.dal.Fetch(criteria);
+            var dtos = dep.dal.Fetch(criteria.Guid);
 
             foreach (var d in dtos)
             {
@@ -98,7 +98,7 @@ namespace Example.Lib
                 // with a tuple to handle multiple parameters
                 // ObjectPortal will bridge the two by turning the multiple paramters to a tuple
 
-                Add(dep.fetch(criteria, d));
+                Add(dep.fetch((criteria.Guid, d)));
             }
 
         }

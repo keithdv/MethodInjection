@@ -16,7 +16,7 @@ namespace Example.Lib
     [Serializable]
     internal class Root : DPBusinessBase<Root>, IRoot
         , IHandleCreateDI<CreateChildBusinessItemList>, IHandleCreateDI<Guid, CreateChildBusinessItemListGuid>
-        , IHandleFetchDI<FetchChildBusinessItemList>, IHandleFetchDI<Guid, FetchChildBusinessItemListGuid>, IHandleUpdateDI<UpdateChild<IBusinessItemList>>
+        , IHandleFetchDI<FetchChildBusinessItemList>, IHandleFetchDI<Guid, FetchChildBusinessItemListCriteria>, IHandleUpdateDI<UpdateChild<IBusinessItemList>>
     {
 
 
@@ -42,9 +42,9 @@ namespace Example.Lib
             BusinessItemList = fetchList();
         }
 
-        public void Fetch(Guid criteria, FetchChildBusinessItemListGuid fetchList)
+        public void Fetch(Guid criteria, FetchChildBusinessItemListCriteria fetchList)
         {
-            BusinessItemList = fetchList(criteria);
+            BusinessItemList = fetchList(new Criteria() { Guid = criteria });
         }
 
         public void Insert(UpdateChild<IBusinessItemList> updateList)

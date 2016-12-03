@@ -30,6 +30,7 @@ namespace Example.Test
 
                 builder.RegisterType<RootDal>().AsImplementedInterfaces();
                 builder.RegisterType<BusinessItemDal>().AsImplementedInterfaces();
+                builder.RegisterGeneric(typeof(ValueTupleDependency<>)).As(typeof(IValueTupleDependency<>)).InstancePerLifetimeScope();
 
                 builder.RegisterModule<LibModule>();
 

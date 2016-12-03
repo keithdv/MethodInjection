@@ -88,8 +88,6 @@ namespace ObjectPortal
             // So the update will continute to work
             return (Delegate) scope.Resolve(delegateType);
 
-            throw new NotImplementedException(delegateType.Name);
-
 
         }
 
@@ -499,7 +497,9 @@ namespace ObjectPortal
             if (fetch == null)
             {
                 var criteriaType = criteria.GetType();
-                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchDI<,>).Name && x.GenericTypeArguments[0] == criteriaType).FirstOrDefault();
+                var @interface = result.GetType().GetInterfaces()
+                    .Where(x => x.Name == typeof(IHandleFetchDI<,>).Name && x.GenericTypeArguments[0].IsAssignableFrom(criteriaType))
+                    .FirstOrDefault();
 
                 if (@interface != null)
                 {
@@ -520,23 +520,23 @@ namespace ObjectPortal
 
         }
 
-        public T Fetch<C1, C2>(C1 criteria1, C2 criteria2)
-        {
+        //public T Fetch<C1, C2>(C1 criteria1, C2 criteria2)
+        //{
 
-            var tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.Name == nameof(Tuple.Create) && x.GetParameters().Count() == 2).First();
+        //    var tupleCreateMethod = typeof(Tuple).GetMethods().Where(x => x.Name == nameof(Tuple.Create) && x.GetParameters().Count() == 2).First();
 
-            var tuple = tupleCreateMethod
-                .MakeGenericMethod(new Type[2] { typeof(C1), typeof(C2) })
-                .Invoke(null, new object[2] { criteria1, criteria2 });
+        //    var tuple = tupleCreateMethod
+        //        .MakeGenericMethod(new Type[2] { typeof(C1), typeof(C2) })
+        //        .Invoke(null, new object[2] { criteria1, criteria2 });
 
-            return (T)this.Fetch(tuple);
+        //    return (T)this.Fetch(tuple);
 
-        }
+        //}
 
-        public T Fetch<C1, C2, C3>(C1 criteria1, C2 criteria2, C3 criteria3)
-        {
-            throw new NotImplementedException();
-        }
+        //public T Fetch<C1, C2, C3>(C1 criteria1, C2 criteria2, C3 criteria3)
+        //{
+        //    throw new NotImplementedException();
+        //}
 
         public T FetchChild()
         {
@@ -549,7 +549,12 @@ namespace ObjectPortal
 
             if (fetch == null)
             {
-                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchChildDI<>).Name).FirstOrDefault();
+                // TODO - What do you do if there is more than one match?
+                // Autofac hueristic
+
+                var @interface = result.GetType().GetInterfaces()
+                    .Where(x => x.IsGenericType && typeof(IHandleFetchChildDI<>).IsAssignableFrom(x.GetGenericTypeDefinition()))
+                    .FirstOrDefault();
 
                 if (@interface != null)
                 {
@@ -581,7 +586,8 @@ namespace ObjectPortal
             if (fetch == null)
             {
                 var criteriaType = criteria.GetType();
-                var @interface = result.GetType().GetInterfaces().Where(x => x.Name == typeof(IHandleFetchChildDI<,>).Name && x.GenericTypeArguments[0] == criteriaType).FirstOrDefault();
+                var @interface = result.GetType().GetInterfaces()
+                    .Where(x => x.Name == typeof(IHandleFetchChildDI<,>).Name && x.GenericTypeArguments[0].IsAssignableFrom(criteriaType)).FirstOrDefault();
 
                 if (@interface != null)
                 {
@@ -639,8 +645,9 @@ namespace ObjectPortal
             // This is also where we would enforce create authorization rules
             var method = interfaceType.GetMethod(methodName);
 
-
-            Type dependencyType = interfaceType.GenericTypeArguments[interfaceType.GenericTypeArguments.Count() - 1]; // grab the last parameter
+            // At this point it either (D Dependency) or (C criteria, D dependency)
+            // Grab the last type type D
+            Type dependencyType = interfaceType.GenericTypeArguments[interfaceType.GenericTypeArguments.Length - 1]; // grab the last parameter
 
             if (interfaceType != null && dependencyType != null)
             {
@@ -651,36 +658,22 @@ namespace ObjectPortal
                 }
                 else if (!scope.IsRegistered(dependencyType) && dependencyType.IsGenericType)
                 { // Bad way of seeing if it is a Tuple.
-                    List<object> dependencies = new List<object>();
 
-                    foreach (var depType in dependencyType.GenericTypeArguments)
-                    {
-                        if (typeof(Delegate).IsAssignableFrom(depType))
-                        {
-                            dependencies.Add(ObjectPortal.CreateDelegate(depType, scope));
-                        }
-                        else
-                        {
-                            dependencies.Add(scope.Resolve(depType));
-                        }
-                    }
+                    // Todo - Extension method to see if one of the generic ValueTuple types
+                    // Todo - Tuple is Serializable but ValueTuple is not
+
+                    List<object> dependencies = new List<object>();
+                    var x = typeof((int, Guid));
+
+                    ValueTuple<int> z;
+
+                    var y = typeof(System.Tuple<int, Guid>);
+
+                    IValueTupleDependency vtd = (IValueTupleDependency) scope.Resolve(typeof(IValueTupleDependency<>).MakeGenericType(dependencyType));
 
                     object tuple = null;
-                    MethodInfo tupleCreateMethod = null;
 
-                    switch (dependencyType.GenericTypeArguments.Count())
-                    {
-                        case 2:
-                            tupleCreateMethod = typeof(ValueTuple).GetMethods().Where(x => x.IsGenericMethod && x.GetGenericArguments().Count() == 2).First();
-                            tuple = tupleCreateMethod
-                                .MakeGenericMethod(new Type[2] { dependencyType.GenericTypeArguments[0], dependencyType.GenericTypeArguments[1] })
-                                .Invoke(null, new object[2] { dependencies[0], dependencies[1] });
-                            break;
-                        case 3:
-                            break;
-                        default:
-                            break;
-                    }
+                    tuple = vtd.CreateValueTuple();
 
 
                     method.Invoke(result, returnInvokeParams(tuple));

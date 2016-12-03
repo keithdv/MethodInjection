@@ -54,6 +54,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BusinessRuleDIBase.cs" />
+    <Compile Include="ValueTupleDependency.cs" />
     <Compile Include="DPBusinessBase.cs" />
     <Compile Include="DPBusinessListBase.cs" />
     <Compile Include="IDependencyPropertyInfo.cs" />

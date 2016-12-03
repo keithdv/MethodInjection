@@ -21,7 +21,7 @@ namespace Example.Lib
     // But the IHandleXYZ interface can only have one criteria as a parameter
     // with a tuple to handle multiple parameters
     // ObjectPortal will bridge the two by turning the multiple paramters to a tuple
-    public delegate IBusinessItem FetchChildBusinessItemGuid(Guid criteria, BusinessItemDto dto);
+    public delegate IBusinessItem FetchChildBusinessItemGuid((Guid g, BusinessItemDto dto) criteria);
 
     public delegate void UpdateChildBusinessItem(IBusinessItem bo, Guid criteria);
 
